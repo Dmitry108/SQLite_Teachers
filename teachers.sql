@@ -60,8 +60,8 @@ INSERT INTO grades (teacher_id, stream_id, grade) VALUES
 	(2, 2, 4.9),
 	(1, 3, 4.8),
 	(1, 4, 4.9);
-.headers on
-.mode column
+-- .headers on
+-- .mode column
 SELECT * FROM teachers;
 SELECT * FROM courses;
 SELECT * FROM streams;
@@ -80,3 +80,28 @@ SELECT * FROM grades;
 -- DROP TABLE grades_old;
 -- .tables
 -- SELECT * FROM grades;
+
+-- homework 4
+-- task 1
+UPDATE streams SET started_at = SUBSTR(started_at, 7, 4) || '-' || SUBSTR(started_at, 4, 2) || '-' || SUBSTR(started_at, 1, 2);
+.headers on
+.mode column
+SELECT * FROM streams;
+
+-- task 2
+SELECT id, number FROM streams ORDER BY started_at DESC LIMIT 1;
+
+-- task 3
+SELECT DISTINCT(SUBSTR(started_at, 1, 4)) FROM streams;
+
+-- task 4
+SELECT COUNT(*) AS total_teachers FROM teachers;
+
+-- task 5
+SELECT started_at FROM streams ORDER BY started_at DESC LIMIT 2;
+
+-- task 6
+SELECT AVG(grade) AS avg_grade FROM grades WHERE teacher_id = 1;
+
+-- task 7
+SELECT teacher_id, AVG(grade) AS avg_grade FROM grades GROUP BY teacher_id HAVING avg_grade < 4.8;
