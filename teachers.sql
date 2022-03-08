@@ -105,3 +105,62 @@ SELECT AVG(grade) AS avg_grade FROM grades WHERE teacher_id = 1;
 
 -- task 7
 SELECT teacher_id, AVG(grade) AS avg_grade FROM grades GROUP BY teacher_id HAVING avg_grade < 4.8;
+
+-- homework 5
+-- task 1
+-- Найдите потоки, количество учеников в которых больше или равно 40. 
+-- В отчет выведите номер потока, название курса и количество учеников.
+SELECT number,
+	(SELECT course FROM courses WHERE courses.id = streams.course_id) AS 'course',
+	students_amount
+FROM streams WHERE streams.students_amount >= 40; 
+
+-- task 2
+-- Найдите два потока с самыми низкими значениями успеваемости. 
+-- В отчет выведите номер потока, название курса, фамилию и имя преподавателя (одним столбцом), оценку успеваемости.
+SELECT 
+	(SELECT number FROM streams WHERE id = grades.stream_id) AS 'stream_id',
+	(SELECT course FROM courses WHERE id = 
+		(SELECT course_id FROM streams WHERE streams.id = grades.stream_id)) AS 'course',
+	(SELECT surname || " " || name FROM teachers WHERE teachers.id = grades.teacher_id) AS 'surname and name',
+	grade
+FROM grades ORDER BY grade ASC LIMIT 2;
+
+-- task 3
+-- Найдите среднюю успеваемость всех потоков преподавателя Николая Савельева. 
+-- В отчёт выведите идентификатор преподавателя и среднюю оценку по потокам.
+SELECT teacher_id, AVG(grade) AS avg_grade FROM grades WHERE grades.teacher_id =
+	(SELECT id FROM teachers WHERE teachers.surname LIKE 'Савельев' AND teachers.name LIKE 'Николай');
+
+-- task 4
+-- Найдите потоки преподавателя Натальи Петровой, а также потоки, по которым успеваемость ниже 4.8. 
+-- В отчёт выведите идентификатор потока, фамилию и имя преподавателя.	
+-- решение с помощью UNION
+SELECT 
+	stream_id,
+	(SELECT surname || " " || name FROM teachers WHERE teachers.id = grades.teacher_id) AS 'surname and name'
+FROM grades
+WHERE grades.teacher_id = 
+	(SELECT id FROM teachers WHERE teachers.surname LIKE 'Петрова' AND teachers.name LIKE 'Наталья')
+UNION
+SELECT 
+	stream_id,
+	(SELECT surname || " " || name FROM teachers WHERE teachers.id = grades.teacher_id) AS 'surname and name'
+FROM grades
+WHERE grades.grade < 4.8;
+
+-- решение в стиле "Don't repeat yourself"
+SELECT 
+	stream_id,
+	(SELECT surname || " " || name FROM teachers WHERE teachers.id = grades.teacher_id) AS 'surname and name'
+FROM grades
+WHERE grades.teacher_id = 
+	(SELECT id FROM teachers WHERE teachers.surname LIKE 'Петрова' AND teachers.name LIKE 'Наталья')
+	OR
+	grades.grade < 4.8;
+
+-- task 5
+-- Дополнительное задание. Найдите разницу между средней успеваемостью преподавателя с наивысшим соответствующим значением 
+-- и средней успеваемостью преподавателя с наименьшим значением. Средняя успеваемость считается по всем потокам преподавателя.
+SELECT MAX(avg_grade) - MIN(avg_grade) FROM
+	(SELECT AVG(grade) AS avg_grade FROM grades GROUP BY grades.teacher_id);
