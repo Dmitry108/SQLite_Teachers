@@ -164,3 +164,81 @@ WHERE grades.teacher_id =
 -- и средней успеваемостью преподавателя с наименьшим значением. Средняя успеваемость считается по всем потокам преподавателя.
 SELECT MAX(avg_grade) - MIN(avg_grade) FROM
 	(SELECT AVG(grade) AS avg_grade FROM grades GROUP BY grades.teacher_id);
+
+-- homework 6
+-- task 1
+-- Покажите информацию по потокам. В отчет выведите номер потока, название курса и дату начала занятий.
+SELECT number, course, started_at 
+FROM streams JOIN courses 
+ON courses.id = streams.course_id;
+
+-- task 2
+-- Найдите общее количество учеников для каждого курса. 
+-- В отчёт выведите название курса и количество учеников по всем потокам курса.
+SELECT course, SUM(students_amount) 
+FROM streams JOIN courses ON courses.id = streams.course_id
+GROUP BY course;
+
+-- task 3
+-- Для всех учителей найдите среднюю оценку по всем проведённым потокам. 
+-- В отчёт выведите идентификатор, фамилию и имя учителя, среднюю оценку по всем проведенным потокам. 
+-- Важно чтобы учителя, у которых не было потоков, также попали в выборку.
+SELECT id, surname, name, AVG(grade) AS avg_grade
+FROM teachers LEFT JOIN grades ON teachers.id = grades.teacher_id
+GROUP BY teachers.id;
+
+-- task 4
+-- Для каждого преподавателя выведите имя, фамилию, минимальное значение успеваемости по всем потокам преподавателя, 
+-- название курса, который соответствует потоку с минимальным значением успеваемости, 
+-- максимальное значение успеваемости по всем потокам преподавателя, 
+-- название курса, соответствующий потоку с максимальным значением успеваемости, 
+-- дату начала следующего потока.
+SELECT
+	name,
+	surname,
+	min_grade,
+	course_min,
+	max_grade,
+	course_max,
+	(SELECT 
+		MIN(started_at) 
+	FROM streams JOIN grades ON streams.id = grades.stream_id 
+	WHERE started_at > date('2020-09-01') AND grades.teacher_id = teachers.id) 
+	AS next_stream_at
+FROM teachers 
+	JOIN (SELECT 
+			grade AS min_grade, 
+			course AS course_min, 
+			stream_id AS stream_min, 
+			teacher_id AS teacher_min
+		FROM grades 
+			JOIN streams ON streams.id = stream_min 
+			JOIN courses ON streams.course_id = courses.id
+		GROUP BY teacher_id
+		HAVING MIN(grade)) 
+	ON teacher_min = teachers.id
+	JOIN (SELECT
+			grade AS max_grade, 
+			course AS course_max, 
+			stream_id AS stream_max, 
+			teacher_id AS teacher_max
+		FROM grades 
+			JOIN streams ON streams.id = stream_max 
+			JOIN courses ON streams.course_id = courses.id
+		GROUP BY teacher_id
+		HAVING MAX(grade)) 
+	ON teacher_max = teachers.id;
+
+-- Решение с применением только JOIN
+SELECT
+	name || " " || surname AS name_surname,
+	MIN(grades.grade || " " || courses.course) AS min_grade,
+	MAX(grades.grade || " " || courses.course) AS max_grade,
+	MIN(date_streams.started_at)
+FROM teachers 
+	JOIN grades ON teachers.id = grades.teacher_id
+	JOIN streams ON grades.stream_id = streams.id
+	JOIN courses ON streams.course_id = courses.id
+	LEFT JOIN streams AS date_streams 
+	ON date_streams.course_id = courses.id AND date_streams.started_at > DATE('2020-09-01')
+GROUP BY teachers.id;
