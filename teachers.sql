@@ -299,3 +299,83 @@ BEGIN
 		THEN RAISE (ABORT, 'Incorrect date of start or number!')
 	END;
 END;
+
+-- homework 8
+-- task 1
+-- Найдите общее количество учеников для каждого курса. 
+-- В отчёт выведите название курса и количество учеников по всем потокам курса. 
+-- Решите задание с применением оконных функций.
+SELECT DISTINCT
+	course,
+	SUM(students_amount) OVER(PARTITION BY streams.course_id) AS total_amount
+	FROM courses
+		LEFT JOIN streams ON streams.course_id = courses.id;
+
+-- task 2
+-- Найдите среднюю оценку по всем потокам для всех учителей. 
+-- В отчёт выведите идентификатор, фамилию и имя учителя, среднюю оценку по всем проведённым потокам. 
+-- Учителя, у которых не было потоков, также должны попасть в выборку. Решите задание с применением оконных функций.
+SELECT DISTINCT
+	teachers.id,
+	teachers.surname,
+	teachers.name,
+	AVG(grades.grade) OVER(PARTITION BY grades.teacher_id) AS avg_grade
+	FROM teachers LEFT JOIN grades ON grades.teacher_id = teachers.id;
+
+-- task 3
+-- Какие индексы надо создать для максимально быстрого выполнения представленного запроса?
+-- SELECT surname, name, number, performance 
+-- FROM academic_performance JOIN teachers ON academic_performance.teacher_id = teachers.id
+-- 		JOIN streams ON academic_performance.stream_id = streams.id
+-- WHERE number >= 200;
+CREATE INDEX streams_number_idx ON streams(number);
+CREATE INDEX teachers_surmane_name_idx ON teachers(surname, name);
+-- индекс по первичному ключу в таблице grades уже есть по умолчанию
+
+-- task 4
+-- Установите SQLiteStudio, подключите базу данных учителей, выполните в графическом клиенте любой запрос.
+
+-- task 5
+-- Для каждого преподавателя выведите имя, фамилию, минимальное значение успеваемости по всем потокам преподавателя, 
+-- название курса, который соответствует потоку с минимальным значением успеваемости, 
+-- максимальное значение успеваемости по всем потокам преподавателя, название курса, 
+-- соответствующий потоку с максимальным значением успеваемости, дату начала следующего потока. 
+-- Выполните задачу с использованием оконных функций.
+SELECT DISTINCT
+	name,
+	surname,
+	FIRST_VALUE(grades.grade) OVER(grades_asc) AS min_grade,
+	FIRST_VALUE(courses.course) OVER(grades_asc) AS course_min,
+	FIRST_VALUE(grades.grade) OVER(grades_desc) AS max_grade,
+	FIRST_VALUE(courses.course) OVER(grades_desc) AS course_max,
+	MIN(date_streams.started_at) OVER(startes_asc) AS next_stream_at
+FROM teachers 
+	INNER JOIN grades ON teachers.id = grades.teacher_id
+	INNER JOIN streams ON grades.stream_id = streams.id
+	INNER JOIN courses ON streams.course_id = courses.id
+	LEFT JOIN streams AS date_streams 
+	ON date_streams.course_id = courses.id AND date_streams.started_at > DATE('2020-09-01')
+WINDOW
+	grades_asc AS (PARTITION BY teachers.id ORDER BY grades.grade ASC),
+	grades_desc AS (PARTITION BY teachers.id ORDER BY grades.grade DESC),
+	startes_asc AS (PARTITION BY teachers.id ORDER BY date_streams.started_at ASC);
+
+SELECT
+	name,
+	surname,
+	course,
+	grade,
+	started_at
+	FROM teachers
+	JOIN grades ON teachers.id = grades.teacher_id
+	JOIN streams ON grades.stream_id = streams.id
+	JOIN courses ON streams.course_id = courses.id;
+
+INSERT INTO streams (course_id, number, started_at, students_amount) VALUES
+	(3, 215, '2021-02-01', 35),
+	(2, 220, '2021-02-21', 38);
+INSERT INTO grades (teacher_id, stream_id, grade) VALUES
+	(2, 5, 4.7),
+	(3, 6, 4.8);
+UPDATE grades SET stream_id  = 7 WHERE teacher_id = 2 AND stream_id = 5;
+UPDATE grades SET stream_id  = 8 WHERE teacher_id = 3 AND stream_id = 6;
