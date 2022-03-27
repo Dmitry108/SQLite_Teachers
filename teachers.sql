@@ -344,45 +344,32 @@ CREATE INDEX teachers_surmane_name_idx ON teachers(surname, name);
 SELECT DISTINCT
 	name,
 	surname,
-	FIRST_VALUE(grade) OVER(grades_asc) AS min_grade,
-	FIRST_VALUE(course) OVER(grades_asc) AS course_min,
-	FIRST_VALUE(grade) OVER(grades_desc) AS max_grade,
-	FIRST_VALUE(course) OVER(grades_desc) AS course_max,
-	'next_stream_at'
+	FIRST_VALUE(grades.grade) OVER(grades_asc) AS min_grade,
+	FIRST_VALUE(courses.course) OVER(grades_asc) AS course_min,
+	FIRST_VALUE(grades.grade) OVER(grades_desc) AS max_grade,
+	FIRST_VALUE(courses.course) OVER(grades_desc) AS course_max,
+	MIN(date_streams.started_at) OVER(startes_asc) AS next_stream_at
 FROM teachers 
-	JOIN grades ON teachers.id = grades.teacher_id
-	JOIN streams ON grades.stream_id = streams.id
-	JOIN courses ON streams.course_id = courses.id
+	INNER JOIN grades ON teachers.id = grades.teacher_id
+	INNER JOIN streams ON grades.stream_id = streams.id
+	INNER JOIN courses ON streams.course_id = courses.id
 	LEFT JOIN streams AS date_streams 
 	ON date_streams.course_id = courses.id AND date_streams.started_at > DATE('2020-09-01')
 WINDOW
-	grades_asc AS (PARTITION BY teachers.id ORDER BY grade ASC),
-	grades_desc AS (PARTITION BY teachers.id ORDER BY grade DESC)
-;
+	grades_asc AS (PARTITION BY teachers.id ORDER BY grades.grade ASC),
+	grades_desc AS (PARTITION BY teachers.id ORDER BY grades.grade DESC),
+	startes_asc AS (PARTITION BY teachers.id ORDER BY date_streams.started_at ASC);
 
 SELECT
 	name,
 	surname,
 	course,
-	grade
+	grade,
+	started_at
 	FROM teachers
 	JOIN grades ON teachers.id = grades.teacher_id
 	JOIN streams ON grades.stream_id = streams.id
 	JOIN courses ON streams.course_id = courses.id;
-
--- Решение с применением только JOIN
-SELECT
-	name || " " || surname AS name_surname,
-	MIN(grades.grade || " " || courses.course) AS min_grade,
-	MAX(grades.grade || " " || courses.course) AS max_grade,
-	MIN(date_streams.started_at)
-FROM teachers 
-	JOIN grades ON teachers.id = grades.teacher_id
-	JOIN streams ON grades.stream_id = streams.id
-	JOIN courses ON streams.course_id = courses.id
-	LEFT JOIN streams AS date_streams 
-	ON date_streams.course_id = courses.id AND date_streams.started_at > DATE('2020-09-01')
-GROUP BY teachers.id;
 
 INSERT INTO streams (course_id, number, started_at, students_amount) VALUES
 	(3, 215, '2021-02-01', 35),
