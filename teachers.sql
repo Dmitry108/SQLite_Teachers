@@ -1,19 +1,22 @@
 -- homework 2
 .open teachers.db
 
-CREATE TABLE teachers (
+DROP TABLE IF EXISTS teachers;
+CREATE TABLE IF NOT EXISTS teachers (
 	id INTEGER PRIMARY KEY AUTOINCREMENT,
 	surname TEXT NOT NULL,
 	name TEXT NOT NULL,
 	email TEXT
 );
 
-CREATE TABLE courses (
+DROP TABLE IF EXISTS courses;
+CREATE TABLE IF NOT EXISTS courses (
 	id INTEGER PRIMARY KEY AUTOINCREMENT,
 	course TEXT NOT NULL
 );
 
-CREATE TABLE streams (
+DROP TABLE IF EXISTS streams;
+CREATE TABLE IF NOT EXISTS streams (
 	id INTEGER PRIMARY KEY AUTOINCREMENT,
 	course_id INTEGER NOT NULL,
 	number INTEGER NOT NULL UNIQUE,
@@ -22,7 +25,8 @@ CREATE TABLE streams (
 	FOREIGN KEY (course_id) REFERENCES courses(id)
 );
 
-CREATE TABLE grades (
+DROP TABLE IF EXISTS grades;
+CREATE TABLE IF NOT EXISTS grades (
 	teacher_id INTEGER NOT NULL,
 	stream_id INTEGER NOT NULL,
 	grade REAL NOT NULL,
@@ -60,8 +64,8 @@ INSERT INTO grades (teacher_id, stream_id, grade) VALUES
 	(2, 2, 4.9),
 	(1, 3, 4.8),
 	(1, 4, 4.9);
--- .headers on
--- .mode column
+.headers on
+.mode column
 SELECT * FROM teachers;
 SELECT * FROM courses;
 SELECT * FROM streams;
@@ -242,3 +246,56 @@ FROM teachers
 	LEFT JOIN streams AS date_streams 
 	ON date_streams.course_id = courses.id AND date_streams.started_at > DATE('2020-09-01')
 GROUP BY teachers.id;
+
+-- homework 7
+-- task 1
+-- Создайте представление, которое для каждого курса выводит название, номер последнего потока, 
+-- дату начала обучения последнего потока и среднюю успеваемость курса по всем потокам.
+DROP VIEW IF EXISTS courses_info;
+CREATE VIEW courses_info AS SELECT
+	courses.course,
+	streams.number,
+	streams.started_at,
+	AVG(grades.grade) AS avg_grade
+	FROM courses
+		LEFT JOIN streams ON courses.id = streams.course_id
+		LEFT JOIN grades ON streams.id = grades.stream_id
+	GROUP BY courses.course HAVING MAX(streams.started_at);
+SELECT * FROM courses_info;
+
+-- task 2
+-- Удалите из базы данных всю информацию, которая относится к преподавателю с идентификатором, равным 3. 
+-- Используйте транзакцию.
+BEGIN TRANSACTION;
+	-- DELETE FROM streams WHERE streams.id = (SELECT stream_id FROM grades WHERE teacher_id = 3);
+	DELETE FROM grades WHERE grades.teacher_id = 3;
+	DELETE FROM teachers WHERE teachers.id = 3;
+COMMIT;
+SELECT * FROM streams;
+SELECT * FROM grades;
+SELECT * FROM teachers;
+
+-- task 3
+-- Создайте триггер для таблицы успеваемости, который проверяет значение успеваемости 
+-- на соответствие диапазону чисел от 0 до 5 включительно.
+CREATE TRIGGER on_insert_grade BEFORE INSERT ON grades
+BEGIN
+	SELECT CASE
+		WHEN NEW.grade NOT BETWEEN 1 AND 5
+		THEN RAISE (ABORT, 'Incorrect grade')
+	END;
+END;
+INSERT INTO grades (teacher_id, stream_id, grade) VALUES (2, 5, 4.7);
+
+-- task 4
+-- Создайте триггер для таблицы потоков, который проверяет, что дата начала потока больше текущей даты, 
+-- а номер потока имеет наибольшее значение среди существующих номеров. При невыполнении условий необходимо вызвать ошибку с информативным сообщением.
+DROP TRIGGER IF EXISTS on_insert_date_stream;
+CREATE TRIGGER on_insert_date_stream BEFORE INSERT ON streams
+BEGIN
+	SELECT CASE
+		WHEN NEW.started_at <= DATE('now')
+			OR NEW.number <= (SELECT MAX(number) FROM streams)
+		THEN RAISE (ABORT, 'Incorrect date of start or number!')
+	END;
+END;
